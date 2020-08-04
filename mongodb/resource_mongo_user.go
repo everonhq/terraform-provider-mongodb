@@ -95,7 +95,7 @@ func resourceMongoDBUserCreate(d *schema.ResourceData, meta interface{}) error {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	roles := d.Get("roles").(*schema.Set)
-	mongodbRoles := getMongoDBUserRoles(roles)
+	mongodbRoles := getMongoDBUserRoles(roles, dbname)
 
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"createUser", username},
@@ -116,7 +116,7 @@ func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	roles := d.Get("roles").(*schema.Set)
-	mongodbRoles := getMongoDBUserRoles(roles)
+	mongodbRoles := getMongoDBUserRoles(roles, dbname)
 
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"updateUser", username},
@@ -152,7 +152,7 @@ func resourceMongoDBUserExists(d *schema.ResourceData, meta interface{}) (bool, 
 	dbname := d.Get("database").(string)
 	username := d.Get("username").(string)
 	roles := d.Get("roles").(*schema.Set)
-	mongodbRoles := getMongoDBUserRoles(roles)
+	mongodbRoles := getMongoDBUserRoles(roles, dbname)
 
 	var result bson.M
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
@@ -172,20 +172,22 @@ func resourceMongoDBUserExists(d *schema.ResourceData, meta interface{}) (bool, 
 	return err == nil, nil
 }
 
-func getMongoDBUserRoles(roles *schema.Set) []bson.D {
+func getMongoDBUserRoles(roles *schema.Set, database string) []bson.D {
 
 	rolesDocs := make([]bson.D, 0)
 
 	for _, role := range roles.List() {
 
-		// Marshal RoleConfig struct to bson
-		data, err := bson.Marshal(role.(string))
-		if err != nil {
-			return nil
+		// Generate Mongo role type bson.D
+		type r struct {
+			Role string
+			DB   string
 		}
+		data, _ := bson.Marshal(r{role.(string), database})
+
 		// Unmarshal bson into bson.D document
 		var doc bson.D
-		err = bson.Unmarshal(data, &doc)
+		bson.Unmarshal(data, &doc)
 		rolesDocs = append(rolesDocs, doc)
 	}
 
