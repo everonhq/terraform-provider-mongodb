@@ -1,8 +1,8 @@
-provider "mongo" {
-    url = "mongodb://localhost:27017/test"
+provider "mongodb" {
+    url = "mongodb://localhost:27017"
 }
 
-resource "mongo_user" "user" {
+resource "mongodb_user" "user" {
     database = "test"
     username = "user"
     password = "pass"
