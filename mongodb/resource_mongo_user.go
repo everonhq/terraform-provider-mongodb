@@ -2,10 +2,25 @@ package mongodb
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 
-	"github.com/globalsign/mgo"
+	"github.com/globalsign/mgo/bson"
 	"github.com/hashicorp/terraform/helper/schema"
+	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// Mongo usersInfo output Result struct
+type UsersInfo struct {
+	Ok             int64 `bson:"ok" validate:"required"`
+	UsersInfoUsers `bson:",inline"`
+}
+type UsersInfoUsers struct {
+	Users []UsersInfoUserConfig `bson:"users" validate:"required"`
+}
+type UsersInfoUserConfig struct {
+	User string `bson:"user" validate:"required"`
+}
 
 func resourceMongoDBUser() *schema.Resource {
 	return &schema.Resource{
@@ -74,69 +89,105 @@ func resourceMongoDBUserRead(d *schema.ResourceData, meta interface{}) error {
 }
 
 func resourceMongoDBUserCreate(d *schema.ResourceData, meta interface{}) error {
-	return resourceMongoDBUserUpdate(d, meta)
-}
-
-func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*mgo.Session)
+	client := meta.(*mongo.Client)
 
 	dbname := d.Get("database").(string)
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	roles := d.Get("roles").(*schema.Set)
-	mongodb_roles := getMongoDBUserRoles(roles)
+	mongodbRoles := getMongoDBUserRoles(roles)
 
-	user := mgo.User{
-		Username: username,
-		Password: password,
-		Roles:    mongodb_roles,
+	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
+		{"createUser", username},
+		{"pwd", password},
+		{"roles", mongodbRoles},
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to create user: %s", username)
 	}
 
-	db := client.DB(dbname)
-	err := db.UpsertUser(&user)
+	return readMongoDBUser(d, meta)
+}
+
+func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*mongo.Client)
+
+	dbname := d.Get("database").(string)
+	username := d.Get("username").(string)
+	password := d.Get("password").(string)
+	roles := d.Get("roles").(*schema.Set)
+	mongodbRoles := getMongoDBUserRoles(roles)
+
+	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
+		{"updateUser", username},
+		{"pwd", password},
+		{"roles", mongodbRoles},
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to update user: %s", username)
 	}
 
 	return readMongoDBUser(d, meta)
 }
 
 func resourceMongoDBUserDelete(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*mgo.Session)
+	client := meta.(*mongo.Client)
 
-	database := d.Get("database").(string)
+	dbname := d.Get("database").(string)
 	username := d.Get("username").(string)
 
-	db := client.DB(database)
-	err := db.RemoveUser(username)
-
-	if err != nil && err.Error() != "not found" {
-		return err
+	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
+		{"dropUser", username},
+	})
+	if err != nil {
+		return fmt.Errorf("Failed to drop user: %s", username)
 	}
 
 	return nil
 }
 
 func resourceMongoDBUserExists(d *schema.ResourceData, meta interface{}) (bool, error) {
-	client := meta.(*mgo.Session)
+	client := meta.(*mongo.Client)
 
-	database := d.Get("database").(string)
+	dbname := d.Get("database").(string)
 	username := d.Get("username").(string)
-	password := d.Get("password").(string)
+	roles := d.Get("roles").(*schema.Set)
+	mongodbRoles := getMongoDBUserRoles(roles)
 
-	db := client.DB(database)
-	err := db.Login(username, password)
-	db.Logout()
+	var result bson.M
+	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
+		{"usersInfo", username},
+		{"roles", mongodbRoles},
+	}).Decode(&result)
+
+	// Unmarshal into Result struct
+	var c *UsersInfo
+	data, _ := bson.Marshal(result)
+	bson.Unmarshal(data, &c)
+
+	if len(c.Users) < 1 || c.Users[0].User != username {
+		return false, fmt.Errorf("Username: %s was not found in list of users returned by MongoDB. Must create new user", username)
+	}
 
 	return err == nil, nil
 }
 
-func getMongoDBUserRoles(roles *schema.Set) []mgo.Role {
-	mongodb_roles := []mgo.Role{}
+func getMongoDBUserRoles(roles *schema.Set) []bson.D {
+
+	rolesDocs := make([]bson.D, 0)
 
 	for _, role := range roles.List() {
-		mrole := mgo.Role(role.(string))
-		mongodb_roles = append(mongodb_roles, mrole)
+
+		// Marshal RoleConfig struct to bson
+		data, err := bson.Marshal(role.(string))
+		if err != nil {
+			return nil
+		}
+		// Unmarshal bson into bson.D document
+		var doc bson.D
+		err = bson.Unmarshal(data, &doc)
+		rolesDocs = append(rolesDocs, doc)
 	}
-	return mongodb_roles
+
+	return rolesDocs
 }

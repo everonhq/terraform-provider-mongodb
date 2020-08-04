@@ -21,7 +21,7 @@ Enter the provider directory and build the provider
 
 ```sh
 $ cd $GOPATH/src/github.com/tomsmallwood/terraform-provider-mongodb
-$ make build
+$ make build -o ~/.terraform.d/plugins/terraform-provider-mongodb
 ```
 
 Using the provider
