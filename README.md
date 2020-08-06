@@ -17,11 +17,27 @@ $ mkdir -p $GOPATH/src/github.com/tomsmallwood; cd $GOPATH/src/github.com/tomsma
 $ git clone git@github.com:tomsmallwood/terraform-provider-mongodb
 ```
 
-Enter the provider directory and build the provider
+Enter the provider directory, create the go.mod and build the provider
 
 ```sh
 $ cd $GOPATH/src/github.com/tomsmallwood/terraform-provider-mongodb
-$ make build -o ~/.terraform.d/plugins/terraform-provider-mongodb
+$ go mod init
+$ make build
+```
+
+Install provider into Terraform plugins dir
+```sh
+$ cp ~/go/bin/terraform-provider-mongodb ~/.terraform.d/plugins/darwin_amd64/
+```
+
+Once code updated, install provider, and run example tf:
+```sh
+cd ..
+make build
+cp ~/go/bin/terraform-provider-mongodb ~/.terraform.d/plugins/darwin_amd64/
+cd example
+terraform init
+terraform apply
 ```
 
 Using the provider
