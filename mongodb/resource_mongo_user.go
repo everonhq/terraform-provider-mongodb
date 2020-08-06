@@ -22,7 +22,7 @@ type UsersInfoUsers struct {
 type UsersInfoUserConfig struct {
 	User string `bson:"user" validate:"required"`
 }
-type CreateUserInfo struct {
+type RunCommandOutput struct {
 	Ok int64 `bson:"ok" validate:"required"`
 }
 
@@ -111,7 +111,7 @@ func resourceMongoDBUserCreate(d *schema.ResourceData, meta interface{}) error {
 	err := client.Database(dbname).RunCommand(context.Background(), cmd).Decode(&result)
 
 	// Unmarshal into Result struct
-	var c *CreateUserInfo
+	var c *RunCommandOutput
 	data, _ := bson.Marshal(result)
 	bson.Unmarshal(data, &c)
 
@@ -131,13 +131,20 @@ func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
 	roles := d.Get("roles").(*schema.Set)
 	mongodbRoles := getMongoDBUserRoles(roles, dbname)
 
+	var result bson.M
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"updateUser", username},
 		{"pwd", password},
 		{"roles", mongodbRoles},
 	})
-	if err != nil {
-		return fmt.Errorf("Failed to update user: %s", username)
+
+	// Unmarshal into Result struct
+	var c *RunCommandOutput
+	data, _ := bson.Marshal(result)
+	bson.Unmarshal(data, &c)
+
+	if c.Ok != 1 {
+		return fmt.Errorf("Failed to update user: %s. Error: %s", username, err)
 	}
 
 	return readMongoDBUser(d, meta)
@@ -149,11 +156,18 @@ func resourceMongoDBUserDelete(d *schema.ResourceData, meta interface{}) error {
 	dbname := d.Get("database").(string)
 	username := d.Get("username").(string)
 
+	var result bson.M
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"dropUser", username},
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to drop user: %s", username)
+	}).Decode(&result)
+
+	// Unmarshal into Result struct
+	var c *RunCommandOutput
+	data, _ := bson.Marshal(result)
+	bson.Unmarshal(data, &c)
+
+	if c.Ok != 1 {
+		return fmt.Errorf("Failed to drop user: %s. Error: %s", username, err)
 	}
 
 	return nil
@@ -176,7 +190,7 @@ func resourceMongoDBUserExists(d *schema.ResourceData, meta interface{}) (bool, 
 	bson.Unmarshal(data, &c)
 
 	if len(c.Users) < 1 || c.Users[0].User != username {
-		return false, fmt.Errorf("Username: %s was not found in list of users returned by MongoDB. Must create new user.", username)
+		return false, fmt.Errorf("Username: %s was not found in list of users returned by MongoDB. Must create new user", username)
 	}
 
 	return err == nil, nil
