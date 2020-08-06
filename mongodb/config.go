@@ -11,7 +11,10 @@ import (
 )
 
 type Config struct {
-	URL string
+	URL          string
+	AuthDatabase string
+	AuthUsername string
+	AuthPassword string
 }
 
 func (c *Config) loadAndValidate() (*mongo.Client, error) {
@@ -29,7 +32,25 @@ func (c *Config) loadAndValidate() (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 	mongoConnectURI := fmt.Sprintf(mURI.String())
-	client, _ := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI))
+
+	// Connect with Auth if login credentials in provider
+	if c.AuthDatabase != "" && c.AuthUsername != "" && c.AuthPassword != "" {
+		credential := options.Credential{
+			AuthMechanism: "SCRAM-SHA-256",
+			AuthSource:    c.AuthDatabase,
+			Username:      c.AuthUsername,
+			Password:      c.AuthPassword,
+		}
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI).SetAuth(credential))
+	} else {
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI))
+	}
+
+	// TODO: Validate Provider MongoDB login credentials
+
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to provider: %s", err)
+	}
 
 	// TODO: Allow SSL config
 
