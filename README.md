@@ -10,18 +10,34 @@ Requirements
 Building The Provider
 ---------------------
 
-Clone repository to: `$GOPATH/src/github.com/pasqualet/terraform-provider-mongodb`
+Clone repository to: `$GOPATH/src/github.com/tomsmallwood/terraform-provider-mongodb`
 
 ```sh
-$ mkdir -p $GOPATH/src/github.com/pasqualet; cd $GOPATH/src/github.com/pasqualet
-$ git clone git@github.com:pasqualet/terraform-provider-mongodb
+$ mkdir -p $GOPATH/src/github.com/tomsmallwood; cd $GOPATH/src/github.com/tomsmallwood
+$ git clone git@github.com:tomsmallwood/terraform-provider-mongodb
 ```
 
-Enter the provider directory and build the provider
+Enter the provider directory, create the go.mod and build the provider
 
 ```sh
-$ cd $GOPATH/src/github.com/pasqualet/terraform-provider-mongodb
+$ cd $GOPATH/src/github.com/tomsmallwood/terraform-provider-mongodb
+$ go mod init
 $ make build
+```
+
+Install provider into Terraform plugins dir
+```sh
+$ cp ~/go/bin/terraform-provider-mongodb ~/.terraform.d/plugins/darwin_amd64/
+```
+
+Once code updated, install provider, and run example tf:
+```sh
+cd ..
+make build
+cp ~/go/bin/terraform-provider-mongodb ~/.terraform.d/plugins/darwin_amd64/
+cd example
+terraform init
+terraform apply
 ```
 
 Using the provider

@@ -1,39 +1,37 @@
 package mongodb
 
 import (
-	"crypto/tls"
-	"net"
+	"context"
+	"fmt"
 	"net/url"
+	"time"
 
-	"github.com/globalsign/mgo"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Config struct {
 	URL string
 }
 
-func (c *Config) loadAndValidate() (*mgo.Session, error) {
+func (c *Config) loadAndValidate() (*mongo.Client, error) {
+
 	mURI, err := url.Parse(c.URL)
 	if err != nil {
 		return nil, err
 	}
 
-	qs := mURI.Query()
-	ssl := qs.Get("ssl") == "true"
-	qs.Del("ssl") // won't parse otherwise
-	mURI.RawQuery = qs.Encode()
+	mURI.RawQuery = mURI.Query().Encode()
 
-	dialInfo, err := mgo.ParseURL(mURI.String())
-	if err != nil {
-		return nil, err
-	}
+	// TODO: If URL contains any information other than hostname:port, then return invalid URL error
 
-	if ssl {
-		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
-			tlsConfig := &tls.Config{}
-			return tls.Dial("tcp", addr.String(), tlsConfig)
-		}
-	}
+	// Connect to mongodb using environment variables
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	defer cancel()
+	mongoConnectURI := fmt.Sprintf(mURI.String())
+	client, _ := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI))
 
-	return mgo.DialWithInfo(dialInfo)
+	// TODO: Allow SSL config
+
+	return client, nil
 }

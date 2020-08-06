@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/hashicorp/terraform/plugin"
-	"github.com/pasqualet/terraform-provider-mongodb/mongodb"
+	"github.com/tomsmallwood/terraform-provider-mongodb/mongodb"
 )
 
 func main() {
