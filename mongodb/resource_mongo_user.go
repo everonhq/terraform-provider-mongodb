@@ -5,8 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/globalsign/mgo/bson"
 	"github.com/hashicorp/terraform/helper/schema"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -20,6 +21,9 @@ type UsersInfoUsers struct {
 }
 type UsersInfoUserConfig struct {
 	User string `bson:"user" validate:"required"`
+}
+type CreateUserInfo struct {
+	Ok int64 `bson:"ok" validate:"required"`
 }
 
 func resourceMongoDBUser() *schema.Resource {
@@ -97,13 +101,22 @@ func resourceMongoDBUserCreate(d *schema.ResourceData, meta interface{}) error {
 	roles := d.Get("roles").(*schema.Set)
 	mongodbRoles := getMongoDBUserRoles(roles, dbname)
 
-	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
-		{"createUser", username},
-		{"pwd", password},
-		{"roles", mongodbRoles},
-	})
-	if err != nil {
-		return fmt.Errorf("Failed to create user: %s", username)
+	var result bson.M
+	// Connect to mongodb using environment variables
+	cmd := bson.D{
+		primitive.E{Key: "createUser", Value: username},
+		primitive.E{Key: "pwd", Value: password},
+		primitive.E{Key: "roles", Value: mongodbRoles},
+	}
+	err := client.Database(dbname).RunCommand(context.Background(), cmd).Decode(&result)
+
+	// Unmarshal into Result struct
+	var c *CreateUserInfo
+	data, _ := bson.Marshal(result)
+	bson.Unmarshal(data, &c)
+
+	if c.Ok != 1 {
+		return fmt.Errorf("Failed to create user: %s. Role: %v. Error: %s", username, mongodbRoles, err)
 	}
 
 	return readMongoDBUser(d, meta)
@@ -151,13 +164,10 @@ func resourceMongoDBUserExists(d *schema.ResourceData, meta interface{}) (bool, 
 
 	dbname := d.Get("database").(string)
 	username := d.Get("username").(string)
-	roles := d.Get("roles").(*schema.Set)
-	mongodbRoles := getMongoDBUserRoles(roles, dbname)
 
 	var result bson.M
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"usersInfo", username},
-		{"roles", mongodbRoles},
 	}).Decode(&result)
 
 	// Unmarshal into Result struct
@@ -166,7 +176,7 @@ func resourceMongoDBUserExists(d *schema.ResourceData, meta interface{}) (bool, 
 	bson.Unmarshal(data, &c)
 
 	if len(c.Users) < 1 || c.Users[0].User != username {
-		return false, fmt.Errorf("Username: %s was not found in list of users returned by MongoDB. Must create new user", username)
+		return false, fmt.Errorf("Username: %s was not found in list of users returned by MongoDB. Must create new user.", username)
 	}
 
 	return err == nil, nil
