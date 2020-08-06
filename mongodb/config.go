@@ -32,13 +32,19 @@ func (c *Config) loadAndValidate() (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 	mongoConnectURI := fmt.Sprintf(mURI.String())
-	credential := options.Credential{
-		AuthMechanism: "SCRAM-SHA-256",
-		AuthSource:    c.AuthDatabase,
-		Username:      c.AuthUsername,
-		Password:      c.AuthPassword,
+
+	// Connect with Auth if login credentials in provider
+	if c.AuthDatabase != "" && c.AuthUsername != "" && c.AuthPassword != "" {
+		credential := options.Credential{
+			AuthMechanism: "SCRAM-SHA-256",
+			AuthSource:    c.AuthDatabase,
+			Username:      c.AuthUsername,
+			Password:      c.AuthPassword,
+		}
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI).SetAuth(credential))
+	} else {
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI))
 	}
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI).SetAuth(credential))
 
 	// TODO: Validate Provider MongoDB login credentials
 
