@@ -33,6 +33,7 @@ func (c *Config) loadAndValidate() (*mongo.Client, error) {
 	defer cancel()
 	mongoConnectURI := fmt.Sprintf(mURI.String())
 
+	var client *mongo.Client
 	// Connect with Auth if login credentials in provider
 	if c.AuthDatabase != "" && c.AuthUsername != "" && c.AuthPassword != "" {
 		credential := options.Credential{
@@ -41,9 +42,9 @@ func (c *Config) loadAndValidate() (*mongo.Client, error) {
 			Username:      c.AuthUsername,
 			Password:      c.AuthPassword,
 		}
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI).SetAuth(credential))
+		client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI).SetAuth(credential))
 	} else {
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI))
+		client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoConnectURI))
 	}
 
 	// TODO: Validate Provider MongoDB login credentials
