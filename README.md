@@ -43,6 +43,22 @@ terraform apply
 Using the provider
 ----------------------
 
+### Provider with auth enabled:
+```
+provider "mongodb" {
+    url = "mongodb://localhost:27017"
+    auth_database = "admin"
+    auth_username = "db-admin-user"
+    auth_password = var.admin_password
+}
+```
+
+Then, create `terraform.tfvars` with the password variable defined:
+```
+admin_password = "<provider login passsword>"
+```
+
+### Provider without auth:
 ```
 provider "mongodb" {
     url = "mongodb://localhost:27017/test"
