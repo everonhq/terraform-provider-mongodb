@@ -69,6 +69,10 @@ resource "mongodb_user" "user" {
     username = "user"
     password = "pass"
     roles = ["read", "dbAdmin", "userAdmin"]
+    authentication_restrictions = jsonencode([{
+                                                 clientSource  = ["127.0.0.1"]
+                                                 serverAddress = ["127.0.0.1"]
+                                              }])
 }
 ```
 
