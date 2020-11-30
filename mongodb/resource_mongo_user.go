@@ -3,12 +3,13 @@ package mongodb
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-
 	"github.com/hashicorp/terraform/helper/schema"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"log"
 )
 
 // Mongo usersInfo output Result struct
@@ -57,6 +58,11 @@ func resourceMongoDBUser() *schema.Resource {
 				Elem:     &schema.Schema{Type: schema.TypeString},
 				Set:      schema.HashString,
 			},
+			"authentication_restrictions": &schema.Schema{
+				Type:     schema.TypeString,
+				ForceNew: false,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -99,7 +105,9 @@ func resourceMongoDBUserCreate(d *schema.ResourceData, meta interface{}) error {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	roles := d.Get("roles").(*schema.Set)
+	authenticationRestrictions := d.Get("authentication_restrictions").(string)
 	mongodbRoles := getMongoDBUserRoles(roles, dbname)
+	mongodbAuthRestrictions := getMongoDBAuthRestrictions(authenticationRestrictions)
 
 	var result bson.M
 	// Connect to mongodb using environment variables
@@ -107,6 +115,7 @@ func resourceMongoDBUserCreate(d *schema.ResourceData, meta interface{}) error {
 		primitive.E{Key: "createUser", Value: username},
 		primitive.E{Key: "pwd", Value: password},
 		primitive.E{Key: "roles", Value: mongodbRoles},
+		primitive.E{Key: "authenticationRestrictions", Value: mongodbAuthRestrictions},
 	}
 	err := client.Database(dbname).RunCommand(context.Background(), cmd).Decode(&result)
 
@@ -130,12 +139,15 @@ func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
 	password := d.Get("password").(string)
 	roles := d.Get("roles").(*schema.Set)
 	mongodbRoles := getMongoDBUserRoles(roles, dbname)
+	authenticationRestrictions := d.Get("authentication_restrictions").(string)
+	mongodbAuthRestrictions := getMongoDBAuthRestrictions(authenticationRestrictions)
 
 	var result bson.M
 	err := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"updateUser", username},
 		{"pwd", password},
 		{"roles", mongodbRoles},
+		{"authenticationRestrictions", mongodbAuthRestrictions},
 	})
 
 	// Unmarshal into Result struct
@@ -144,7 +156,7 @@ func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
 	bson.Unmarshal(data, &c)
 
 	if c.Ok != 1 {
-		return fmt.Errorf("Failed to update user: %s. Error: %s", username, err)
+		return fmt.Errorf("Failed to update user: %s. Error: %v", username, err)
 	}
 
 	return readMongoDBUser(d, meta)
@@ -216,4 +228,38 @@ func getMongoDBUserRoles(roles *schema.Set, database string) []bson.D {
 	}
 
 	return rolesDocs
+}
+
+func getMongoDBAuthRestrictions(authRestrictions string) []bson.D {
+	restrictionDocs := make([]bson.D, 0)
+
+	type r struct {
+		ClientSource  []string `json:"clientSource"`
+		ServerAddress []string `json:"serverAddress"`
+	}
+
+	var restrictions []r
+	err := json.Unmarshal([]byte(authRestrictions), &restrictions)
+	if err != nil {
+		log.Fatalf("Unable to unmarshal `authenticationRestrictions` JSON: %e", err)
+	}
+
+	for _, restriction := range restrictions {
+
+		r := map[string][]string{
+			"clientSource":  restriction.ClientSource,
+			"serverAddress": restriction.ServerAddress,
+		}
+
+		var doc bson.D
+
+		data, err := bson.Marshal(r)
+		if err != nil {
+			log.Fatalf("Unable to marshal `authenticationRestrictions` to BSON: %e", err)
+		}
+		err = bson.Unmarshal(data, &doc)
+
+		restrictionDocs = append(restrictionDocs, doc)
+	}
+	return restrictionDocs
 }

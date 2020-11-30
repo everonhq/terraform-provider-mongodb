@@ -10,17 +10,17 @@ Requirements
 Building The Provider
 ---------------------
 
-Clone repository to: `$GOPATH/src/github.com/tomsmallwood/terraform-provider-mongodb`
+Clone repository to: `$GOPATH/src/github.com/everonhq/terraform-provider-mongodb`
 
 ```sh
-$ mkdir -p $GOPATH/src/github.com/tomsmallwood; cd $GOPATH/src/github.com/tomsmallwood
-$ git clone git@github.com:tomsmallwood/terraform-provider-mongodb
+$ mkdir -p $GOPATH/src/github.com/everonhq; cd $GOPATH/src/github.com/everonhq
+$ git clone git@github.com:everonhq/terraform-provider-mongodb
 ```
 
 Enter the provider directory, create the go.mod and build the provider
 
 ```sh
-$ cd $GOPATH/src/github.com/tomsmallwood/terraform-provider-mongodb
+$ cd $GOPATH/src/github.com/everonhq/terraform-provider-mongodb
 $ go mod init
 $ make build
 ```

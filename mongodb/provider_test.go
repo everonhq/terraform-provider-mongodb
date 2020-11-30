@@ -1,17 +1,17 @@
 package mongodb
 
 import (
+	"go.mongodb.org/mongo-driver/mongo"
 	"os"
 	"testing"
 
-	"github.com/globalsign/mgo"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 )
 
 var testAccProviders map[string]terraform.ResourceProvider
 var testAccProvider *schema.Provider
-var testAccMongoDBClient *mgo.Session
+var testAccMongoDBClient *mongo.Client
 
 func init() {
 	testAccProvider = Provider().(*schema.Provider)
@@ -38,7 +38,9 @@ func testAccPreCheck(t *testing.T) {
 
 	if testAccMongoDBClient == nil {
 		config := Config{
-			URL: os.Getenv("MONGO_URL"),
+			URL:          "mongodb://127.0.0.1:27017",
+			AuthUsername: "admin",
+			AuthPassword: "admin",
 		}
 
 		if client, err := config.loadAndValidate(); err != nil {
