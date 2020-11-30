@@ -2,7 +2,7 @@ name: Go
 
 on:
   push:
-    branches: [ master, E42-2196-fix-workflow ]
+    branches: [ master ]
 
 jobs:
 
