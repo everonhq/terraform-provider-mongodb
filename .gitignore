@@ -4,3 +4,8 @@
 *tfstate.backup
 *terraform.tfvars
 /releases
+
+#IntelliJ IDE
+/.idea/*
+!/.idea/codeStyles
+*.iml
