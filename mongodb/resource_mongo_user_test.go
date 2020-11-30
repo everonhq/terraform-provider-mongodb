@@ -10,11 +10,19 @@ import (
 )
 
 var testAccMongoDBUserConfig = fmt.Sprintf(`
+locals {
+  authentication_restrictions = [{
+    clientSource  = ["127.0.0.1"]
+    serverAddress = ["127.0.0.1"]
+  }]
+}
+
 resource "mongodb_user" "user" {
 	database = "testing"
     username = "user"
     password = "pass"
     roles = ["read", "dbAdmin", "userAdmin"]
+    authentication_restrictions = jsonencode(local.authentication_restrictions)
 }
 `)
 
