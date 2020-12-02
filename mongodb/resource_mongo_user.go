@@ -142,18 +142,12 @@ func resourceMongoDBUserUpdate(d *schema.ResourceData, meta interface{}) error {
 	authenticationRestrictions := d.Get("authentication_restrictions").(string)
 	mongodbAuthRestrictions := getMongoDBAuthRestrictions(authenticationRestrictions)
 
-	var result bson.M
 	output := client.Database(dbname).RunCommand(context.Background(), bson.D{
 		{"updateUser", username},
 		{"pwd", password},
 		{"roles", mongodbRoles},
 		{"authenticationRestrictions", mongodbAuthRestrictions},
 	})
-
-	// Unmarshal into Result struct
-	var c *RunCommandOutput
-	data, _ := bson.Marshal(result)
-	bson.Unmarshal(data, &c)
 
 	if output.Err() != nil && output.Err() != mongo.ErrNoDocuments {
 		return fmt.Errorf("Failed to update user: %s. Error: %#v", username, output.Err())
